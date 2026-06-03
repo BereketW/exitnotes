@@ -1,15 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Course } from "@/lib/courses";
 import type { ExtractedDeck } from "@/lib/pptx";
+import type { GenerationDiagnostics } from "@/lib/gemini";
 
-type UploadState = "idle" | "uploading" | "ready" | "generating" | "error";
+type UploadState =
+  | "idle"
+  | "uploading"
+  | "ready"
+  | "generating"
+  | "done"
+  | "error";
+type Diagnostics = GenerationDiagnostics;
 
 export default function CourseWorkspace({ course }: { course: Course }) {
-  const router = useRouter();
   const [status, setStatus] = useState<UploadState>("idle");
+  const [noteId, setNoteId] = useState<string | null>(null);
   const [decks, setDecks] = useState<ExtractedDeck[]>([]);
   const [blueprint, setBlueprint] = useState("");
   const [error, setError] = useState("");
@@ -17,7 +25,9 @@ export default function CourseWorkspace({ course }: { course: Course }) {
     totalSlides: number;
     retainedLines: number;
     removedLines: number;
+    compressedChars: number;
   } | null>(null);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
 
   const slideCount = useMemo(
     () => decks.reduce((total, deck) => total + deck.slides.length, 0),
@@ -32,6 +42,8 @@ export default function CourseWorkspace({ course }: { course: Course }) {
     setStatus("uploading");
     setError("");
     setStats(null);
+    setDiagnostics(null);
+    setNoteId(null);
 
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append("files", file));
@@ -55,6 +67,8 @@ export default function CourseWorkspace({ course }: { course: Course }) {
   async function generate() {
     setStatus("generating");
     setError("");
+    setDiagnostics(null);
+    setNoteId(null);
 
     const response = await fetch("/api/generate", {
       method: "POST",
@@ -74,7 +88,9 @@ export default function CourseWorkspace({ course }: { course: Course }) {
     }
 
     setStats(payload.stats);
-    router.push(`/notes/${payload.note.id}`);
+    setDiagnostics(payload.diagnostics ?? null);
+    setNoteId(payload.note.id);
+    setStatus("done");
   }
 
   return (
@@ -139,22 +155,78 @@ export default function CourseWorkspace({ course }: { course: Course }) {
         </p>
       )}
 
-      {stats && (
-        <p className="mt-4 text-sm font-bold text-[#635a4d]">
-          Kept {stats.retainedLines} lines, removed {stats.removedLines} noisy
-          or duplicate lines.
-        </p>
+      {(stats || diagnostics) && (
+        <div className="mt-5 border border-[#17130f]/15 bg-[#17130f] p-4 font-mono text-xs text-[#fdf9ef]">
+          <p className="mb-2 font-black uppercase tracking-[0.18em] text-[#f0a899]">
+            Generation process
+          </p>
+          <div className="space-y-1">
+            {stats && (
+              <>
+                <Line label="slides parsed" value={stats.totalSlides} />
+                <Line
+                  label="compression"
+                  value={`kept ${stats.retainedLines} / removed ${stats.removedLines} lines → ${stats.compressedChars.toLocaleString()} chars`}
+                />
+              </>
+            )}
+            {diagnostics && (
+              <>
+                <Line label="model" value={diagnostics.model} />
+                <Line
+                  label="route"
+                  value={diagnostics.usedFallback ? "rule-based fallback" : "Gemini API"}
+                />
+                <Line label="finishReason" value={diagnostics.finishReason ?? "n/a"} />
+                <Line
+                  label="tokens"
+                  value={`in ${diagnostics.promptTokens ?? "?"} · out ${diagnostics.outputTokens ?? "?"} · thoughts ${diagnostics.thoughtTokens ?? 0}`}
+                />
+                <Line
+                  label="output"
+                  value={`${diagnostics.outputChars.toLocaleString()} chars · ${diagnostics.outputLines} lines`}
+                />
+                {diagnostics.truncated && (
+                  <p className="mt-2 text-[#f0a899]">
+                    ⚠ Output hit the token limit and may be cut off.
+                  </p>
+                )}
+                {diagnostics.note && !diagnostics.truncated && (
+                  <p className="mt-2 text-[#f0a899]">ⓘ {diagnostics.note}</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
 
-      <button
-        className="mt-5 h-12 w-full bg-[#d9482e] px-5 text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#b73622] disabled:cursor-not-allowed disabled:bg-[#c9c1b5]"
-        type="button"
-        disabled={decks.length === 0 || status === "uploading" || status === "generating"}
-        onClick={generate}
-      >
-        {status === "generating" ? "Generating notes..." : "Generate short notes"}
-      </button>
+      {status === "done" && noteId ? (
+        <Link
+          href={`/notes/${noteId}`}
+          className="mt-5 flex h-12 w-full items-center justify-center bg-[#d9482e] px-5 text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#b73622]"
+        >
+          View generated notes →
+        </Link>
+      ) : (
+        <button
+          className="mt-5 h-12 w-full bg-[#d9482e] px-5 text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#b73622] disabled:cursor-not-allowed disabled:bg-[#c9c1b5]"
+          type="button"
+          disabled={decks.length === 0 || status === "uploading" || status === "generating"}
+          onClick={generate}
+        >
+          {status === "generating" ? "Generating notes..." : "Generate short notes"}
+        </button>
+      )}
     </div>
+  );
+}
+
+function Line({ label, value }: { label: string; value: string | number }) {
+  return (
+    <p className="flex justify-between gap-4">
+      <span className="text-[#9a8f80]">{label}</span>
+      <span className="text-right font-bold">{value}</span>
+    </p>
   );
 }
 
@@ -178,6 +250,9 @@ function statusLabel(status: UploadState) {
   }
   if (status === "generating") {
     return "Gemini";
+  }
+  if (status === "done") {
+    return "Done";
   }
   if (status === "error") {
     return "Error";

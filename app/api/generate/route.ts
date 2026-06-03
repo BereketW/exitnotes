@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     }
 
     const compressed = compressDecks(body.decks);
-    const markdown = await generateNotes({
+    const { markdown, diagnostics } = await generateNotes({
       courseTitle: course.title,
       blueprint: body.blueprint ?? "",
       compressedMarkdown: compressed.markdown,
@@ -54,7 +54,9 @@ export async function POST(request: Request) {
         totalSlides: compressed.totalSlides,
         retainedLines: compressed.retainedLines,
         removedLines: compressed.removedLines,
+        compressedChars: compressed.markdown.length,
       },
+      diagnostics,
     });
   } catch (error) {
     return Response.json(
