@@ -46,6 +46,40 @@ export default async function NotePage({
           </div>
         </header>
 
+        {note.blueprintSections && note.blueprintSections.length > 0 && (
+          <section className="mt-8 border border-[#17130f]/15 bg-white p-5 shadow-[6px_6px_0_#d9482e]">
+            <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#d9482e]">
+              Key exam blueprint
+            </h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {note.blueprintSections.map((section, index) => (
+                <div
+                  key={`${section.title}-${index}`}
+                  className="border border-[#17130f]/15 bg-[#fdf9ef] p-3"
+                >
+                  <p className="flex items-baseline justify-between gap-3">
+                    <span className="font-black">
+                      {index + 1}. {section.title || "Untitled section"}
+                    </span>
+                    {section.weight && (
+                      <span className="shrink-0 text-xs font-bold text-[#d9482e]">
+                        {section.weight}
+                      </span>
+                    )}
+                  </p>
+                  {section.keyPoints.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#4d463e]">
+                      {section.keyPoints.map((point, pointIndex) => (
+                        <li key={pointIndex}>{point}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <article className="prose-notes mt-8 border border-[#17130f]/15 bg-[#fdf9ef] p-5">
           {renderMarkdown(note.markdown)}
         </article>

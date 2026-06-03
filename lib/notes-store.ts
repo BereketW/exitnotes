@@ -1,3 +1,5 @@
+import type { BlueprintSection } from "@/lib/notes";
+
 export type Note = {
   id: string;
   courseId: string;
@@ -6,6 +8,7 @@ export type Note = {
   markdown: string;
   compressedMarkdown: string;
   blueprint: string;
+  blueprintSections?: BlueprintSection[];
   deckCount: number;
   slideCount: number;
   sourceFiles: string[];

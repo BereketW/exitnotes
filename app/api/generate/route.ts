@@ -1,6 +1,6 @@
-import { generateNotes } from "@/lib/gemini";
 import { compressDecks } from "@/lib/compress";
 import { getCourse } from "@/lib/courses";
+import { generateNotes, type BlueprintSection } from "@/lib/notes";
 import { saveNote } from "@/lib/notes-store";
 import type { ExtractedDeck } from "@/lib/pptx";
 
@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       courseId?: string;
       blueprint?: string;
+      blueprintSections?: BlueprintSection[];
       decks?: ExtractedDeck[];
     };
 
@@ -30,7 +31,8 @@ export async function POST(request: Request) {
     const compressed = compressDecks(body.decks);
     const { markdown, diagnostics } = await generateNotes({
       courseTitle: course.title,
-      blueprint: body.blueprint ?? "",
+      blueprintText: body.blueprint ?? "",
+      blueprintSections: body.blueprintSections,
       compressedMarkdown: compressed.markdown,
     });
 
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
       markdown,
       compressedMarkdown: compressed.markdown,
       blueprint: body.blueprint ?? "",
+      blueprintSections: body.blueprintSections,
       deckCount: body.decks.length,
       slideCount: compressed.totalSlides,
       sourceFiles: body.decks.map((deck) => deck.fileName),
