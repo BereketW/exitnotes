@@ -41,6 +41,50 @@ export function extractPptxText(fileName: string, bytes: ArrayBuffer) {
   } satisfies ExtractedDeck;
 }
 
+// Sequence keywords commonly used in lecture filenames, e.g.
+// "Lecture 1", "chapter-02", "week3", "Module 4", "L1", "Unit_5".
+const ORDER_KEYWORD =
+  /\b(?:lectures?|lec|chapters?|chap|ch|weeks?|wk|units?|modules?|mod|parts?|topics?|sections?|sec|days?|sessions?|no|num|[lwup])\s*[._\-#]?\s*(\d{1,4})\b/i;
+
+/**
+ * Infers a sort position from a deck's filename. Prefers a number anchored to
+ * a sequence keyword ("lecture 2"); otherwise uses the first number found.
+ * Returns null when the name has no usable number.
+ */
+export function inferDeckOrder(fileName: string): number | null {
+  const base = fileName.replace(/\.[^.]+$/, "");
+  const keyword = base.match(ORDER_KEYWORD);
+  if (keyword) {
+    return Number(keyword[1]);
+  }
+
+  const firstNumber = base.match(/\d{1,4}/);
+  return firstNumber ? Number(firstNumber[0]) : null;
+}
+
+/**
+ * Orders decks by their inferred filename sequence. Decks without a detectable
+ * number sink to the end, and equal numbers fall back to a natural-alphabetical
+ * comparison (then original order) for stability.
+ */
+export function orderDecks<T extends { fileName: string }>(decks: T[]): T[] {
+  return decks
+    .map((deck, index) => ({ deck, index, order: inferDeckOrder(deck.fileName) }))
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        if (a.order === null) return 1;
+        if (b.order === null) return -1;
+        return a.order - b.order;
+      }
+      const byName = a.deck.fileName.localeCompare(b.deck.fileName, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return byName !== 0 ? byName : a.index - b.index;
+    })
+    .map((entry) => entry.deck);
+}
+
 function unzip(buffer: Buffer) {
   const eocdOffset = findEndOfCentralDirectory(buffer);
   const entryCount = buffer.readUInt16LE(eocdOffset + 10);

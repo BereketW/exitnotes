@@ -127,13 +127,21 @@ export default function CourseWorkspace({ course }: { course: Course }) {
           <h2 className="text-sm font-black uppercase tracking-[0.2em]">
             Uploaded decks
           </h2>
+          <p className="mt-1 text-xs text-[#635a4d]">
+            Ordered by the sequence detected in each filename.
+          </p>
           <div className="mt-3 space-y-2">
-            {decks.map((deck) => (
+            {decks.map((deck, index) => (
               <div
                 key={deck.fileName}
                 className="flex items-center justify-between gap-4 border border-[#17130f]/10 px-3 py-2 text-sm"
               >
-                <span className="truncate font-bold">{deck.fileName}</span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="shrink-0 font-mono text-xs font-black text-[#d9482e]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="truncate font-bold">{deck.fileName}</span>
+                </span>
                 <span className="shrink-0 text-[#635a4d]">
                   {deck.slides.length} slides
                 </span>

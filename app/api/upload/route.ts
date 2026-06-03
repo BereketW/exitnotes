@@ -1,4 +1,4 @@
-import { extractPptxText } from "@/lib/pptx";
+import { extractPptxText, orderDecks } from "@/lib/pptx";
 
 export const runtime = "nodejs";
 
@@ -13,9 +13,13 @@ export async function POST(request: Request) {
       return Response.json({ error: "Upload at least one PPTX file." }, { status: 400 });
     }
 
-    const decks = await Promise.all(
+    const extracted = await Promise.all(
       files.map(async (file) => extractPptxText(file.name, await file.arrayBuffer())),
     );
+
+    // Order by the sequence inferred from each filename (lecture/chapter/week
+    // numbers) so generation and the raw export follow the real lecture order.
+    const decks = orderDecks(extracted);
 
     return Response.json({ decks });
   } catch (error) {
