@@ -34,6 +34,12 @@ export default function CourseWorkspace({ course }: { course: Course }) {
     [decks],
   );
 
+  const rawMarkdownHref = useMemo(
+    () =>
+      `data:text/markdown;charset=utf-8,${encodeURIComponent(buildRawMarkdown(course.title, decks))}`,
+    [course.title, decks],
+  );
+
   async function uploadFiles(files: FileList | null) {
     if (!files || files.length === 0) {
       return;
@@ -134,6 +140,13 @@ export default function CourseWorkspace({ course }: { course: Course }) {
               </div>
             ))}
           </div>
+          <a
+            href={rawMarkdownHref}
+            download={`${course.id}-raw-extract.md`}
+            className="mt-3 flex h-11 w-full items-center justify-center border border-[#17130f] bg-white px-5 text-xs font-black uppercase tracking-[0.18em] text-[#17130f] transition-colors hover:bg-[#fdf9ef]"
+          >
+            Download raw .md (no AI, as-is)
+          </a>
         </div>
       )}
 
@@ -219,6 +232,17 @@ export default function CourseWorkspace({ course }: { course: Course }) {
       )}
     </div>
   );
+}
+
+function buildRawMarkdown(courseTitle: string, decks: ExtractedDeck[]) {
+  const blocks = decks.map((deck) => {
+    const slides = deck.slides
+      .map((slide) => `### Slide ${slide.slideNumber}\n\n${slide.text}`)
+      .join("\n\n");
+    return `## ${deck.fileName}\n\n${slides}`;
+  });
+
+  return [`# ${courseTitle} — Raw Lecture Extract`, "", ...blocks].join("\n\n");
 }
 
 function Line({ label, value }: { label: string; value: string | number }) {
